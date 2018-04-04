@@ -72,23 +72,13 @@ def main(args):
 
             nrof_images = len(image_paths)
 
-            print('Images:')
-            for i in range(nrof_images):
-                print('%1d: %s' % (i, image_paths[i]))
-            print('')
 
             # Print distance matrix
-            print('Distance matrix')
-            print('    ', end='')
-            for i in range(nrof_images):
-                print('    %1d     ' % i, end='')
-            print('')
-            for i in range(nrof_images):
-                print('%1d  ' % i, end='')
-                for j in range(nrof_images):
-                    dist = np.sqrt(np.sum(np.square(np.subtract(emb[i,:], emb[j,:]))))
-                    print('  %1.4f  ' % dist, end='')
-                print('')
+            print('Distances w.r.t. original')
+            for i in range(1,nrof_images):
+                model_name = image_paths[i].split('/')[-1].split('.')[0]
+                dist = np.sqrt(np.sum(np.square(np.subtract(emb[0,:], emb[i,:]))))
+                print('{} :: {}'.format(model_name.upper(),dist))
 
 
 def load_and_align_data(image_paths, image_size, margin, gpu_memory_fraction):
@@ -97,7 +87,6 @@ def load_and_align_data(image_paths, image_size, margin, gpu_memory_fraction):
     threshold = [ 0.6, 0.7, 0.7 ]  # three steps's threshold
     factor = 0.709 # scale factor
 
-    print('Creating networks and loading parameters')
     with tf.Graph().as_default():
         gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=gpu_memory_fraction,visible_device_list = "0")
         sess = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options, log_device_placement=False))
@@ -123,6 +112,9 @@ def load_and_align_data(image_paths, image_size, margin, gpu_memory_fraction):
         bb[3] = np.minimum(det[3]+margin/2, img_size[0])
         cropped = img[bb[1]:bb[3],bb[0]:bb[2],:]
         aligned = misc.imresize(cropped, (image_size, image_size), interp='bilinear')
+        # Sanity check -- Save images being fed to the metric model
+        filename = image.split('/')[-1]
+        misc.imsave(filename,aligned)
         prewhitened = facenet.prewhiten(aligned)
         img_list.append(prewhitened)
     images = np.stack(img_list)
