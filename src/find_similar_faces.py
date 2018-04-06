@@ -38,6 +38,7 @@ import facenet
 import align.detect_face
 from compare import *
 import math
+import pickle
 
 n_images = 1000
 
@@ -73,10 +74,9 @@ def main(args):
     training_image_paths = create_train_image_paths(args.training_images_dir)
 
     num_test_images = len(test_image_paths)
-    print('Number of test images = {}'.format(num_test_images))
     num_train_images = len(training_image_paths)
 
-    batch_size = 256
+    batch_size = 512
 
     num_batches_train = math.ceil(num_train_images/batch_size)
     num_batches_test = math.ceil(num_test_images/batch_size)
@@ -109,6 +109,37 @@ def main(args):
                     test_image_embeddings[path] = emb[idx,:]
 
             print('Embeddings calculated for {} test images'.format(len(test_image_embeddings)))
+
+            # Compute embeddings for training images
+            # Store the differences between train and test image embeddings in the "distances" dictionary
+            distances = {} # {test_image_path : {training_image_path:distance}}
+
+            #Init inner dictionary
+            for test_image_path in test_image_paths:
+                distances[test_image_path] = {}
+
+            for batch_idx in range(num_batches_train):
+                print('Calculating embeddings for batch {} of train images'.format(batch_idx))
+                training_image_batch = training_image_paths[batch_size*batch_idx:min(batch_size*(batch_idx+1),num_train_images)]
+                images = load_and_align_data(training_image_batch,args.image_size, args.margin, args.gpu_memory_fraction)
+                emb = compute_embedding(sess = sess,
+                                        images_placeholder = images_placeholder,
+                                        phase_train_placeholder = phase_train_placeholder,
+                                        embedding_compute_node = embeddings,
+                                        image_batch = images)
+                for test_image_path in test_image_embeddings:
+                    emb_test = test_image_embeddings[test_image_path]
+                    for train_image_path,idx in zip(training_image_batch,range(len(training_image_batch))):
+                        train_image_emb = emb[idx,:]
+                        dist = np.sqrt(np.sum(np.square(np.subtract(emb_test,train_image_emb))))
+                        distances[test_image_path][train_image_path] = dist
+            #Save the dictionary of differences
+            save_dict('distance_dict.pkl',distances)
+
+def save_dict(fname,diff_dict):
+    with open(fname,'wb') as f:
+        pickle.dump(diff_dict,f)
+
 
 def parse_arguments(argv):
     parser = argparse.ArgumentParser()
