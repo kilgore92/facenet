@@ -36,11 +36,24 @@ import argparse
 import facenet
 import align.detect_face
 from compare import *
+import pandas as pd
 
-def main(args):
+n_images = 1000
+image_size = 160
 
-    image_dir = args.image_files
-    print(image_dir)
+def create_image_list(image_paths):
+    images = [facenet.prewhiten(misc.imresize(misc.imread(path,mode='RGB'),(image_size,image_size),interp='bilinear')) for path in image_paths]
+    return np.stack(images)
+
+
+def compare_inpaintings(root_dir,idx,sess,images_placeholder,embeddings,phase_train_placeholder):
+    """
+    Computes distances of in-paintings of a single original image (by different models) to the original image
+
+    """
+
+    image_dir = os.path.join(root_dir,str(idx))
+    original_image_path =  os.path.join(image_dir,'original.jpg')
     gen_images_dir = os.path.join(image_dir,'gen')
     image_paths = []
     image_paths.append(os.path.join(image_dir,'original.jpg'))
@@ -48,40 +61,56 @@ def main(args):
     for path in generated_image_paths:
         image_paths.append(path)
 
+    images = create_image_list(image_paths)
+
+    # Run forward pass to calculate embeddings
+    feed_dict = { images_placeholder: images, phase_train_placeholder:False }
+    emb = sess.run(embeddings, feed_dict=feed_dict)
+
+    nrof_images = len(image_paths)
 
 
+    # Print distance matrix
+    print('Distances w.r.t. original : {}'.format(original_image_path))
+    dist_list = []
+    dist_list.append(original_image_path) # Add path for DB indexing
+    for i in range(1,nrof_images):
+        model_name = image_paths[i].split('/')[-1].split('.')[0]
+        dist = np.sqrt(np.sum(np.square(np.subtract(emb[0,:], emb[i,:]))))
+        dist_list.append(dist)
+        print('{} :: {}'.format(model_name.upper(),dist))
+    return dist_list
 
-    images = load_and_align_data(image_paths, args.image_size, args.margin, args.gpu_memory_fraction)
+def create_database(root_dir,model=None):
+    db = []
 
     with tf.Graph().as_default():
         config = tf.ConfigProto()
-        config.gpu_options.visible_device_list = "0"
-
+        config.gpu_options.visible_device_list = "1"
         with tf.Session(config = config) as sess:
-
             # Load the model
-            facenet.load_model(args.model)
+            facenet.load_model(model)
 
             # Get input and output tensors
             images_placeholder = tf.get_default_graph().get_tensor_by_name("input:0")
             embeddings = tf.get_default_graph().get_tensor_by_name("embeddings:0")
             phase_train_placeholder = tf.get_default_graph().get_tensor_by_name("phase_train:0")
 
-            # Run forward pass to calculate embeddings
-            feed_dict = { images_placeholder: images, phase_train_placeholder:False }
-            emb = sess.run(embeddings, feed_dict=feed_dict)
+            for idx in range(n_images):
+                db.append(compare_inpaintings(root_dir = root_dir,
+                                              idx=idx,
+                                              sess = sess,
+                                              embeddings=embeddings,
+                                              images_placeholder=images_placeholder,
+                                              phase_train_placeholder=phase_train_placeholder))
 
-            nrof_images = len(image_paths)
+            columns = ['Original Image','DCGAN-CONS','WGAN-GP','DCGAN','WGAN','DCGAN-GP']
+            df = pd.DataFrame(data = db,
+                              columns = columns)
+            df.to_csv('gan_distances.csv')
 
 
-            # Print distance matrix
-            print('Distances w.r.t. original')
-            for i in range(1,nrof_images):
-                model_name = image_paths[i].split('/')[-1].split('.')[0]
-                dist = np.sqrt(np.sum(np.square(np.subtract(emb[0,:], emb[i,:]))))
-                print('{} :: {}'.format(model_name.upper(),dist))
-
-def parse_arguments(argv):
+def build_parser():
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--model', type=str,
@@ -93,7 +122,11 @@ def parse_arguments(argv):
         help='Margin for the crop around the bounding box (height, width) in pixels.', default=44)
     parser.add_argument('--gpu_memory_fraction', type=float,
         help='Upper bound on the amount of GPU memory that will be used by the process.', default=0.8)
-    return parser.parse_args(argv)
+    return parser
 
 if __name__ == '__main__':
-    main(parse_arguments(sys.argv[1:]))
+
+    parser = build_parser()
+    args = parser.parse_args()
+    create_database(root_dir = args.image_files,model = args.model)
+
