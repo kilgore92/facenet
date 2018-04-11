@@ -5,10 +5,14 @@ find top-n similar images from the training set for each test set image
 
 """
 import scipy.misc
+import cv2
 import pickle
 import os
 import numpy as np
 import collections
+import shutil
+
+models = ['dcgan.jpg','wgan.jpg','dcgan-gp.jpg','wgan-gp.jpg','dcgan-cons.jpg']
 
 def center_crop(im, output_size):
     output_height, output_width = output_size
@@ -35,24 +39,47 @@ def fetch_dict(fname):
 
 
 def read_and_crop_image(fname):
-    return center_crop(im = scipy.misc.imread(name=fname,mode='RGB'),output_size=[64,64])
+    return center_crop(im = cv2.imread(fname),output_size=[64,64])
 
 
-def merge_and_save(image_list,idx,root_dir):
+def merge_and_save(image_list,generated_image_list,idx,root_dir):
 
-    if os.path.exists(root_dir) is False:
-        os.makedirs(root_dir)
+    """
+    Create an image mosiac.
+    1st row : Original Image + Nearest Neighbours
+    2nd row : In-paintings
+    """
+
+
+    if len(image_list) < 10:
+        print('No neighbors for image {}'.format(idx))
+        return
 
     filename = os.path.join(root_dir,'sim_images_for_{}.jpg'.format(idx))
-    frame_width = 64*len(image_list)
-    frame_height = 64
+    frame_width = int(64*len(image_list))
+    frame_height = int(64*2) # 2 "rows" of images
     frame_channels = 3
     img = np.zeros((frame_height,frame_width,frame_channels))
-    for image,idx in zip(image_list,range(len(image_list))):
-        x_pos = idx*64
-        img[:,x_pos:x_pos+64,:] = image
+    for image,index in zip(image_list,range(len(image_list))):
+        x_pos = index*64
+        img[0:int((frame_height/2)),x_pos:x_pos+64,:] = image
+
+
+    for image,index in zip(generated_image_list,range(len(generated_image_list))):
+        x_pos = index*64
+        if image.shape[0] == 64 and image.shape[1] == 64 and image.shape[2] == 3:
+            img[int((frame_height/2)):frame_height,x_pos:x_pos+64,:] = image
+        else:
+            print('Generated Image ({}) for original image {} is not of the correct shape'.format(models[index],idx))
+
     scipy.misc.imsave(filename,img)
 
+def get_image_id(fname):
+    """
+    Helper function to get image ID from filename
+
+    """
+    return int(fname.split('/')[-2])
 
 def find_similar_faces(distance_dict,top_n=10):
     """
@@ -60,7 +87,13 @@ def find_similar_faces(distance_dict,top_n=10):
 
     """
     root_dir = os.path.join(os.getcwd(),'nearest_neighbours')
-    for test_image_path,idx in zip(distance_dict,range(len(distance_dict))):
+
+    if os.path.exists(root_dir) is True:
+        shutil.rmtree(root_dir)
+
+    os.makedirs(root_dir)
+
+    for test_image_path in distance_dict:
         print('Nearest neighbours for : {}'.format(test_image_path))
         distances = distance_dict[test_image_path] # Extract the sub-dictionary we want to sort on distances
         ordered_list = [(distances[k],k) for k in sorted(distances, key=distances.get)]
@@ -70,7 +103,13 @@ def find_similar_faces(distance_dict,top_n=10):
         for items in closest_images:
             image_list.append(read_and_crop_image(items[1])) # Append closest images
 
-        merge_and_save(image_list = image_list,idx = idx,root_dir = root_dir)
+        generated_image_root = test_image_path.replace('original.jpg','gen')
+        # Append in-painted images
+        generated_image_list = []
+        for model in models:
+            generated_image_list.append(read_and_crop_image(os.path.join(generated_image_root,model)))
+
+        merge_and_save(image_list = image_list,generated_image_list = generated_image_list,idx = get_image_id(test_image_path),root_dir = root_dir)
 
 if __name__ == '__main__':
     distances = fetch_dict('distance_dict.pkl')
