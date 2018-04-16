@@ -84,7 +84,7 @@ def main(args):
     with tf.Graph().as_default():
 
         config = tf.ConfigProto()
-        config.gpu_options.visible_device_list = "1"
+        config.gpu_options.visible_device_list = "0"
 
         with tf.Session(config = config) as sess:
             # Load the model
@@ -99,7 +99,7 @@ def main(args):
             for batch_idx in range(num_batches_test):
                 print('Calculating embeddings for batch {} of test images'.format(batch_idx))
                 test_image_batch = test_image_paths[batch_size*batch_idx:min(batch_size*(batch_idx+1),num_test_images)]
-                images = load_and_align_data(test_image_batch,args.image_size, args.margin, args.gpu_memory_fraction,device_id = "1")
+                images = load_and_align_data(test_image_batch,args.image_size, args.margin, args.gpu_memory_fraction,device_id = "0")
                 emb = compute_embedding(sess = sess,
                                         images_placeholder = images_placeholder,
                                         phase_train_placeholder = phase_train_placeholder,

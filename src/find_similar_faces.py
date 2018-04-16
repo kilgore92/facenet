@@ -11,24 +11,9 @@ import os
 import numpy as np
 import collections
 import shutil
+from compare import *
 
 models = ['dcgan.jpg','wgan.jpg','dcgan-gp.jpg','wgan-gp.jpg','dcgan-cons.jpg']
-
-def center_crop(im, output_size):
-    output_height, output_width = output_size
-    h, w = im.shape[:2]
-    short_edge = min(h,w)
-    if h < output_height and w < output_width:
-        raise ValueError("image is small")
-
-    offset_h = int((h - short_edge) / 2)
-    offset_w = int((w - short_edge) / 2)
-    center_crop =  im[offset_h:offset_h+short_edge, offset_w:offset_w+short_edge, :]
-    resized_crop = scipy.misc.imresize(center_crop,[output_width+18,output_height+18]) # Add some wiggle room
-    start_pixel = 10
-    end_pixel = output_width + 10 # Assuming that width and height are same !!
-    centered_image = resized_crop[start_pixel:end_pixel,start_pixel:end_pixel]
-    return centered_image
 
 def fetch_dict(fname):
     try:
@@ -39,7 +24,11 @@ def fetch_dict(fname):
 
 
 def read_and_crop_image(fname):
-    return center_crop(im = cv2.imread(fname),output_size=[64,64])
+    """
+    Read and crop image to 64x64 for display
+
+    """
+    return center_crop(im = scipy.misc.imread(fname,mode='RGB'),output_size=[64,64])
 
 
 def merge_and_save(image_list,generated_image_list,idx,root_dir):

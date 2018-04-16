@@ -76,6 +76,22 @@ def main(args):
                 print('')
 
 
+def center_crop(im, output_size):
+    output_height, output_width = output_size
+    h, w = im.shape[:2]
+    short_edge = min(h,w)
+    #if h < output_height and w < output_width:
+    #    raise ValueError("image is small")
+
+    offset_h = int((h - short_edge) / 2)
+    offset_w = int((w - short_edge) / 2)
+    center_crop =  im[offset_h:offset_h+short_edge, offset_w:offset_w+short_edge, :]
+    resized_crop = misc.imresize(center_crop,[output_width+18,output_height+18],interp='bilinear') # Add some wiggle room
+    start_pixel = 10
+    end_pixel = output_width + 10 # Assuming that width and height are same !!
+    centered_image = resized_crop[start_pixel:end_pixel,start_pixel:end_pixel]
+    return centered_image
+
 def load_and_align_data(image_paths, image_size, margin, gpu_memory_fraction,device_id = "0"):
 
     minsize = 20 # minimum size of face
@@ -97,18 +113,18 @@ def load_and_align_data(image_paths, image_size, margin, gpu_memory_fraction,dev
         img = misc.imread(os.path.expanduser(image), mode='RGB')
         img_size = np.asarray(img.shape)[0:2]
         bounding_boxes, _ = align.detect_face.detect_face(img, minsize, pnet, rnet, onet, threshold, factor)
-        if len(bounding_boxes) < 1:
-          image_paths.remove(image)
-          print("can't detect face, remove ", image)
-          continue
-        det = np.squeeze(bounding_boxes[0,0:4])
-        bb = np.zeros(4, dtype=np.int32)
-        bb[0] = np.maximum(det[0]-margin/2, 0)
-        bb[1] = np.maximum(det[1]-margin/2, 0)
-        bb[2] = np.minimum(det[2]+margin/2, img_size[1])
-        bb[3] = np.minimum(det[3]+margin/2, img_size[0])
-        cropped = img[bb[1]:bb[3],bb[0]:bb[2],:]
-        aligned = misc.imresize(cropped, (image_size, image_size), interp='bilinear')
+        if len(bounding_boxes) < 1: # Do a fixed center-crop if the detector doesn't detect a face in the image
+            aligned = center_crop(im = img,output_size=[image_size,image_size])
+        else:
+            det = np.squeeze(bounding_boxes[0,0:4])
+            bb = np.zeros(4, dtype=np.int32)
+            bb[0] = np.maximum(det[0]-margin/2, 0)
+            bb[1] = np.maximum(det[1]-margin/2, 0)
+            bb[2] = np.minimum(det[2]+margin/2, img_size[1])
+            bb[3] = np.minimum(det[3]+margin/2, img_size[0])
+            cropped = img[bb[1]:bb[3],bb[0]:bb[2],:]
+            aligned = misc.imresize(cropped, (image_size, image_size), interp='bilinear')
+
         prewhitened = facenet.prewhiten(aligned)
         img_list.append(prewhitened)
     images = np.stack(img_list)

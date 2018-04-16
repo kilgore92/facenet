@@ -86,7 +86,7 @@ def create_database(root_dir,model=None):
 
     with tf.Graph().as_default():
         config = tf.ConfigProto()
-        config.gpu_options.visible_device_list = "1"
+        config.gpu_options.visible_device_list = "0"
         with tf.Session(config = config) as sess:
             # Load the model
             facenet.load_model(model)
