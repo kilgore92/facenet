@@ -13,7 +13,7 @@ import collections
 import shutil
 from compare import *
 
-models = ['dcgan.jpg','wgan.jpg','dcgan-gp.jpg','wgan-gp.jpg','dcgan-cons.jpg']
+models = ['dcgan.jpg','wgan.jpg','dcgan-gp.jpg','wgan-gp.jpg','dcgan-cons.jpg','dragan.jpg']
 
 def fetch_dict(fname):
     try:

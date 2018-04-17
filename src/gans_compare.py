@@ -86,7 +86,7 @@ def create_database(root_dir,model=None):
 
     with tf.Graph().as_default():
         config = tf.ConfigProto()
-        config.gpu_options.visible_device_list = "0"
+        config.gpu_options.visible_device_list = "1"
         with tf.Session(config = config) as sess:
             # Load the model
             facenet.load_model(model)
@@ -104,7 +104,7 @@ def create_database(root_dir,model=None):
                                               images_placeholder=images_placeholder,
                                               phase_train_placeholder=phase_train_placeholder))
 
-            columns = ['Original Image','DCGAN-CONS','WGAN-GP','DCGAN','WGAN','DCGAN-GP']
+            columns = ['Original Image','DCGAN-CONS','WGAN-GP','DRAGAN','DCGAN','WGAN','DCGAN-GP']
             df = pd.DataFrame(data = db,
                               columns = columns)
             df.to_csv('gan_distances.csv')
