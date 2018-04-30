@@ -37,6 +37,7 @@ import facenet
 import align.detect_face
 from compare import *
 import pandas as pd
+from scipy.spatial.distance import cosine
 
 n_images = 1000
 image_size = 160
@@ -76,7 +77,8 @@ def compare_inpaintings(root_dir,idx,sess,images_placeholder,embeddings,phase_tr
     dist_list.append(original_image_path) # Add path for DB indexing
     for i in range(1,nrof_images):
         model_name = image_paths[i].split('/')[-1].split('.')[0]
-        dist = np.sqrt(np.sum(np.square(np.subtract(emb[0,:], emb[i,:]))))
+        #dist = np.sqrt(np.sum(np.square(np.subtract(emb[0,:], emb[i,:]))))
+        dist = cosine(emb[0,:],emb[i,:])
         dist_list.append(dist)
         print('{} :: {}'.format(model_name.upper(),dist))
     return dist_list
