@@ -66,9 +66,53 @@ def compute_embedding(sess,images_placeholder,phase_train_placeholder,embedding_
 
 
 
+def create_embeddings_train(args):
+    training_image_paths = create_train_image_paths(args.training_images_dir)
+    num_train_images = len(training_image_paths)
+
+    batch_size = 512
+    num_batches_train = math.ceil(num_train_images/batch_size)
+
+    train_embedding_dict = {}
+
+    with tf.Graph().as_default():
+
+        config = tf.ConfigProto()
+        config.gpu_options.visible_device_list = args.gpu
+
+        with tf.Session(config = config) as sess:
+            # Load the model
+            facenet.load_model(args.model)
+
+            # Get input and output tensors
+            images_placeholder = tf.get_default_graph().get_tensor_by_name("input:0")
+            embeddings = tf.get_default_graph().get_tensor_by_name("embeddings:0")
+            phase_train_placeholder = tf.get_default_graph().get_tensor_by_name("phase_train:0")
+
+            for batch_idx in range(num_batches_train):
+                print('Calculating embeddings for batch {}/{} of train images'.format(batch_idx,num_batches_train))
+                training_image_batch = training_image_paths[batch_size*batch_idx:min(batch_size*(batch_idx+1),num_train_images)]
+                images = load_and_align_data(training_image_batch,args.image_size, args.margin, args.gpu_memory_fraction,device_id=args.gpu)
+                emb = compute_embedding(sess = sess,
+                                        images_placeholder = images_placeholder,
+                                        phase_train_placeholder = phase_train_placeholder,
+                                        embedding_compute_node = embeddings,
+                                        image_batch = images)
+                # Save to dict
+                for path,idx in zip(training_image_batch,range(len(training_image_batch))):
+                    train_embedding_dict[path] = emb[idx,:]
+                # Save dict to disk for every batch
+                with open('train_image_emb.pkl','wb') as f:
+                    pickle.dump(train_embedding_dict,f)
 
 
 def main(args):
+
+    """
+    Creates a distance dict of training images for each test image
+    Used for the nearest neighbours experiment
+
+    """
 
     test_image_paths = create_test_image_paths(args.test_images_dir)
     training_image_paths = create_train_image_paths(args.training_images_dir)
@@ -153,10 +197,11 @@ def parse_arguments(argv):
         help='Margin for the crop around the bounding box (height, width) in pixels.', default=44)
     parser.add_argument('--gpu_memory_fraction', type=float,
         help='Upper bound on the amount of GPU memory that will be used by the process.', default=0.8)
-    parser.add_argument('--test_images_dir',type=str,help='Path containing held out set of images')
-    parser.add_argument('--training_images_dir',type=str,help='Path containing images used to train the GAN')
+    parser.add_argument('--test_images_dir',type=str,help='Path containing held out set of images',default='/home/ibhat/datasets/celebA_test')
+    parser.add_argument('--training_images_dir',type=str,help='Path containing images used to train the GAN',default='/home/ibhat/datasets/celebA')
+    parser.add_argument('--gpu',type=str,help='Select GPU,0 or 1',default='1')
     return parser.parse_args(argv)
 
 if __name__ == '__main__':
-    main(parse_arguments(sys.argv[1:]))
+    create_embeddings_train(parse_arguments(sys.argv[1:]))
 
