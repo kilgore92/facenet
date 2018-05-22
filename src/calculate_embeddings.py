@@ -52,7 +52,9 @@ def create_train_image_paths(training_images_dir):
     training_image_paths = [os.path.join(training_images_dir,f) for f in os.listdir(training_images_dir) if os.path.isfile(os.path.join(training_images_dir,f))]
     return training_image_paths
 
-
+def create_inpaint_image_paths(images_dir):
+    image_paths = [os.path.join(images_dir,f) for f in os.listdir(images_dir) if os.path.isfile(os.path.join(images_dir,f))]
+    return image_paths
 
 def compute_embedding(sess,images_placeholder,phase_train_placeholder,embedding_compute_node,image_batch):
     """
@@ -65,15 +67,34 @@ def compute_embedding(sess,images_placeholder,phase_train_placeholder,embedding_
     return emb
 
 
+def create_embeddings(args):
 
-def create_embeddings_train(args):
-    training_image_paths = create_train_image_paths(args.training_images_dir)
-    num_train_images = len(training_image_paths)
+    """
+    Given a folder of images, generates a dictionary with
+    image_path:embedding map
+
+    """
+
+    if args.src == 'test':
+        image_paths = create_test_image_paths(args.images_dir)
+    elif args.src == 'train':
+        image_paths = create_train_image_paths(args.images_dir)
+    else: # (src == inpaint)
+        image_paths = create_inpaint_image_paths(args.images_dir)
+
+    num_images = len(image_paths)
+
+    print('Images found in dir : {}'.format(num_images))
 
     batch_size = 512
-    num_batches_train = math.ceil(num_train_images/batch_size)
+    num_batches = math.ceil(num_images/batch_size)
 
-    train_embedding_dict = {}
+    embedding_dict = {}
+
+    if args.src == 'inpaint':
+        fname = '{}_emb_dict.pkl'.format(args.model.lower())
+    else:
+        fname = '{}_emb_dict.pkl'.format(args.mode.lower())
 
     with tf.Graph().as_default():
 
@@ -89,63 +110,26 @@ def create_embeddings_train(args):
             embeddings = tf.get_default_graph().get_tensor_by_name("embeddings:0")
             phase_train_placeholder = tf.get_default_graph().get_tensor_by_name("phase_train:0")
 
-            for batch_idx in range(num_batches_train):
-                print('Calculating embeddings for batch {}/{} of train images'.format(batch_idx,num_batches_train))
-                training_image_batch = training_image_paths[batch_size*batch_idx:min(batch_size*(batch_idx+1),num_train_images)]
-                images = load_and_align_data(training_image_batch,args.image_size, args.margin, args.gpu_memory_fraction,device_id=args.gpu)
+            for batch_idx in range(num_batches):
+                print('Calculating embeddings for batch {}/{} of images'.format(batch_idx,num_batches))
+                image_batch = image_paths[batch_size*batch_idx:min(batch_size*(batch_idx+1),num_images)]
+                images = load_and_align_data(image_batch,args.image_size, args.margin, args.gpu_memory_fraction,device_id=args.gpu)
                 emb = compute_embedding(sess = sess,
                                         images_placeholder = images_placeholder,
                                         phase_train_placeholder = phase_train_placeholder,
                                         embedding_compute_node = embeddings,
                                         image_batch = images)
+
                 # Save to dict
-                for path,idx in zip(training_image_batch,range(len(training_image_batch))):
-                    train_embedding_dict[path] = emb[idx,:]
+                for path,idx in zip(image_batch,range(len(image_batch))):
+                    embedding_dict[path] = emb[idx,:]
+
                 # Save dict to disk for every batch
-                with open('train_image_emb.pkl','wb') as f:
-                    pickle.dump(train_embedding_dict,f)
+                with open(fname,'wb') as f:
+                    pickle.dump(embedding_dict,f)
 
 
-def create_embeddings_test(args):
-    test_image_paths = create_test_image_paths(args.test_images_dir)
-    num_test_images = len(test_image_paths)
-
-    batch_size = 512
-    num_batches_test = math.ceil(num_test_images/batch_size)
-
-    test_embedding_dict = {}
-
-    with tf.Graph().as_default():
-
-        config = tf.ConfigProto()
-        config.gpu_options.visible_device_list = args.gpu
-
-        with tf.Session(config = config) as sess:
-            # Load the model
-            facenet.load_model(args.model)
-
-            # Get input and output tensors
-            images_placeholder = tf.get_default_graph().get_tensor_by_name("input:0")
-            embeddings = tf.get_default_graph().get_tensor_by_name("embeddings:0")
-            phase_train_placeholder = tf.get_default_graph().get_tensor_by_name("phase_train:0")
-
-            for batch_idx in range(num_batches_test):
-                print('Calculating embeddings for batch {}/{} of test images'.format(batch_idx,num_batches_test))
-                test_image_batch = test_image_paths[batch_size*batch_idx:min(batch_size*(batch_idx+1),num_test_images)]
-                images = load_and_align_data(test_image_batch,args.image_size, args.margin, args.gpu_memory_fraction,device_id=args.gpu)
-                emb = compute_embedding(sess = sess,
-                                        images_placeholder = images_placeholder,
-                                        phase_train_placeholder = phase_train_placeholder,
-                                        embedding_compute_node = embeddings,
-                                        image_batch = images)
-                # Save to dict
-                for path,idx in zip(test_image_batch,range(len(test_image_batch))):
-                    test_embedding_dict[path] = emb[idx,:]
-                # Save dict to disk for every batch
-                with open('test_image_emb.pkl','wb') as f:
-                    pickle.dump(test_embedding_dict,f)
-
-def main(args):
+def create_nn_emb_dict(args):
 
     """
     Creates a distance dict of training images for each test image
@@ -236,11 +220,12 @@ def parse_arguments(argv):
         help='Margin for the crop around the bounding box (height, width) in pixels.', default=44)
     parser.add_argument('--gpu_memory_fraction', type=float,
         help='Upper bound on the amount of GPU memory that will be used by the process.', default=0.8)
-    parser.add_argument('--test_images_dir',type=str,help='Path containing held out set of images',default='/home/ibhat/datasets/celebA_test')
-    parser.add_argument('--training_images_dir',type=str,help='Path containing images used to train the GAN',default='/home/ibhat/datasets/celebA')
+    parser.add_argument('--images_dir',type=str,help='Path containing held out set of images',default=None,required=True)
+    parser.add_argument('--src',type=str,help='Type of images to generate embeddings for',default='inpaint')
     parser.add_argument('--gpu',type=str,help='Select GPU,0 or 1',default='1')
+    parser.add_argument('--gan',type=str,help='GAN that performed the inpainting',default='dcgan')
     return parser.parse_args(argv)
 
 if __name__ == '__main__':
-    create_embeddings_test(parse_arguments(sys.argv[1:]))
+    create_embeddings(parse_arguments(sys.argv[1:]))
 
