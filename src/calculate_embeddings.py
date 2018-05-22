@@ -91,10 +91,15 @@ def create_embeddings(args):
 
     embedding_dict = {}
 
+    save_path = os.path.join(os.getcwd(),'embeddings')
+
+    if os.path.exists(save_path) is False:
+        os.makedirs(save_path)
+
     if args.src == 'inpaint':
-        fname = '{}_emb_dict.pkl'.format(args.model.lower())
+        fname = os.path.join(save_path,'{}_emb_dict.pkl'.format(args.gan.lower()))
     else:
-        fname = '{}_emb_dict.pkl'.format(args.mode.lower())
+        fname = os.path.join(save_path,'{}_emb_dict.pkl'.format(args.src.lower()))
 
     with tf.Graph().as_default():
 
