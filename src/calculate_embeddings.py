@@ -106,6 +106,45 @@ def create_embeddings_train(args):
                     pickle.dump(train_embedding_dict,f)
 
 
+def create_embeddings_test(args):
+    test_image_paths = create_test_image_paths(args.test_images_dir)
+    num_test_images = len(test_image_paths)
+
+    batch_size = 512
+    num_batches_test = math.ceil(num_test_images/batch_size)
+
+    test_embedding_dict = {}
+
+    with tf.Graph().as_default():
+
+        config = tf.ConfigProto()
+        config.gpu_options.visible_device_list = args.gpu
+
+        with tf.Session(config = config) as sess:
+            # Load the model
+            facenet.load_model(args.model)
+
+            # Get input and output tensors
+            images_placeholder = tf.get_default_graph().get_tensor_by_name("input:0")
+            embeddings = tf.get_default_graph().get_tensor_by_name("embeddings:0")
+            phase_train_placeholder = tf.get_default_graph().get_tensor_by_name("phase_train:0")
+
+            for batch_idx in range(num_batches_test):
+                print('Calculating embeddings for batch {}/{} of test images'.format(batch_idx,num_batches_test))
+                test_image_batch = test_image_paths[batch_size*batch_idx:min(batch_size*(batch_idx+1),num_test_images)]
+                images = load_and_align_data(test_image_batch,args.image_size, args.margin, args.gpu_memory_fraction,device_id=args.gpu)
+                emb = compute_embedding(sess = sess,
+                                        images_placeholder = images_placeholder,
+                                        phase_train_placeholder = phase_train_placeholder,
+                                        embedding_compute_node = embeddings,
+                                        image_batch = images)
+                # Save to dict
+                for path,idx in zip(test_image_batch,range(len(test_image_batch))):
+                    test_embedding_dict[path] = emb[idx,:]
+                # Save dict to disk for every batch
+                with open('test_image_emb.pkl','wb') as f:
+                    pickle.dump(test_embedding_dict,f)
+
 def main(args):
 
     """
@@ -203,5 +242,5 @@ def parse_arguments(argv):
     return parser.parse_args(argv)
 
 if __name__ == '__main__':
-    create_embeddings_train(parse_arguments(sys.argv[1:]))
+    create_embeddings_test(parse_arguments(sys.argv[1:]))
 
