@@ -53,7 +53,9 @@ def create_train_image_paths(training_images_dir):
     return training_image_paths
 
 def create_inpaint_image_paths(images_dir):
-    image_paths = [os.path.join(images_dir,f) for f in os.listdir(images_dir) if os.path.isfile(os.path.join(images_dir,f))]
+    image_paths = []
+    for idx in range(1000):
+        image_paths.append(os.path.join(images_dir,str(idx),'gz','gz_1400.jpg'))
     return image_paths
 
 def compute_embedding(sess,images_placeholder,phase_train_placeholder,embedding_compute_node,image_batch):
