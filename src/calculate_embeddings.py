@@ -42,6 +42,8 @@ import pickle
 
 n_images = 1000
 
+gan_dir_root = '/home/ibhat/gans_compare/tf.gans-comparison/completions_stochastic_center'
+
 def create_test_image_paths(root_dir):
     test_image_paths = []
     for idx in range(n_images):
@@ -82,7 +84,8 @@ def create_embeddings(args):
     elif args.src == 'train':
         image_paths = create_train_image_paths(args.images_dir)
     else: # (src == inpaint)
-        image_paths = create_inpaint_image_paths(args.images_dir)
+        images_dir = os.path.join(gan_dir_root,'{}'.format(args.gan.lower()),'celeba')
+        image_paths = create_inpaint_image_paths(images_dir)
 
     num_images = len(image_paths)
 
@@ -227,7 +230,7 @@ def parse_arguments(argv):
         help='Margin for the crop around the bounding box (height, width) in pixels.', default=44)
     parser.add_argument('--gpu_memory_fraction', type=float,
         help='Upper bound on the amount of GPU memory that will be used by the process.', default=0.8)
-    parser.add_argument('--images_dir',type=str,help='Path containing held out set of images',default=None,required=True)
+    parser.add_argument('--images_dir',type=str,help='Path containing held out set of images',default=None)
     parser.add_argument('--src',type=str,help='Type of images to generate embeddings for',default='inpaint')
     parser.add_argument('--gpu',type=str,help='Select GPU,0 or 1',default='1')
     parser.add_argument('--gan',type=str,help='GAN that performed the inpainting',default='dcgan')
