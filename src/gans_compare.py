@@ -88,7 +88,7 @@ def create_database(root_dir,model=None):
 
     with tf.Graph().as_default():
         config = tf.ConfigProto()
-        config.gpu_options.visible_device_list = "1"
+        config.gpu_options.visible_device_list = "0"
         with tf.Session(config = config) as sess:
             # Load the model
             facenet.load_model(model)
@@ -117,7 +117,7 @@ def build_parser():
 
     parser.add_argument('--model', type=str,
         help='Could be either a directory containing the meta_file and ckpt_file or a model protobuf (.pb) file')
-    parser.add_argument('--image_files', type=str,default='/home/ibhat/gans_compare/tf.gans-comparison/images_db/0', help='Images to compare')
+    parser.add_argument('--image_files', type=str,default='/home/ibhat/gans_compare/tf.gans-comparison/images_db/', help='Images to compare')
     parser.add_argument('--image_size', type=int,
         help='Image size (height, width) in pixels.', default=160)
     parser.add_argument('--margin', type=int,
