@@ -111,6 +111,8 @@ def create_database(root_dir,model=None):
                                               images_placeholder=images_placeholder,
                                               phase_train_placeholder=phase_train_placeholder))
 
+                sys.stdout.flush()
+
             columns = []
             columns.append('Original Image')
             for model in models:

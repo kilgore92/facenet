@@ -33,6 +33,7 @@ import tensorflow as tf
 import numpy as np
 import sys
 import os
+sys.path.append(os.path.join(os.getcwd(),'src'))
 import argparse
 import facenet
 import align.detect_face
@@ -109,7 +110,6 @@ def create_embeddings(args):
     with tf.Graph().as_default():
 
         config = tf.ConfigProto()
-        config.gpu_options.visible_device_list = args.gpu
 
         with tf.Session(config = config) as sess:
             # Load the model
@@ -122,8 +122,9 @@ def create_embeddings(args):
 
             for batch_idx in range(num_batches):
                 print('Calculating embeddings for batch {}/{} of images'.format(batch_idx,num_batches))
+                sys.stdout.flush()
                 image_batch = image_paths[batch_size*batch_idx:min(batch_size*(batch_idx+1),num_images)]
-                images = load_and_align_data(image_batch,args.image_size, args.margin, args.gpu_memory_fraction,device_id=args.gpu)
+                images = load_and_align_data(image_batch,args.image_size, args.margin, args.gpu_memory_fraction)
                 emb = compute_embedding(sess = sess,
                                         images_placeholder = images_placeholder,
                                         phase_train_placeholder = phase_train_placeholder,
@@ -231,9 +232,8 @@ def parse_arguments(argv):
     parser.add_argument('--gpu_memory_fraction', type=float,
         help='Upper bound on the amount of GPU memory that will be used by the process.', default=0.8)
     parser.add_argument('--images_dir',type=str,help='Path containing held out set of images',default=None)
-    parser.add_argument('--src',type=str,help='Type of images to generate embeddings for',default='inpaint')
-    parser.add_argument('--gpu',type=str,help='Select GPU,0 or 1',default='1')
-    parser.add_argument('--gan',type=str,help='GAN that performed the inpainting',default='dcgan')
+    parser.add_argument('--src',type=str,help='Type of images to generate embeddings for',default=None)
+    parser.add_argument('--gan',type=str,help='GAN that performed the inpainting',default=None)
     return parser.parse_args(argv)
 
 if __name__ == '__main__':

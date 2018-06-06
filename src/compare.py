@@ -92,7 +92,7 @@ def center_crop(im, output_size):
     centered_image = resized_crop[start_pixel:end_pixel,start_pixel:end_pixel]
     return centered_image
 
-def load_and_align_data(image_paths, image_size, margin, gpu_memory_fraction,device_id = "0"):
+def load_and_align_data(image_paths, image_size, margin, gpu_memory_fraction):
 
     minsize = 20 # minimum size of face
     threshold = [ 0.6, 0.7, 0.7 ]  # three steps's threshold
@@ -100,7 +100,7 @@ def load_and_align_data(image_paths, image_size, margin, gpu_memory_fraction,dev
 
     print('Creating networks and loading parameters')
     with tf.Graph().as_default():
-        gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=gpu_memory_fraction,visible_device_list=str(device_id))
+        gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=gpu_memory_fraction)
         sess = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options, log_device_placement=False))
         with sess.as_default():
             pnet, rnet, onet = align.detect_face.create_mtcnn(sess, None)
