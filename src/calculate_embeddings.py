@@ -43,9 +43,11 @@ import pickle
 
 n_images = 1000
 
-gan_dir_root = '/home/ibhat/gans_compare/tf.gans-comparison/completions_stochastic_center'
 
 def create_test_image_paths(root_dir):
+    """
+    To maintain indexing, provide the images db folder
+    """
     test_image_paths = []
     for idx in range(n_images):
         test_image_paths.append(os.path.join(root_dir,str(idx),'original.jpg'))
@@ -56,6 +58,10 @@ def create_train_image_paths(training_images_dir):
     return training_image_paths
 
 def create_inpaint_image_paths(images_dir):
+    """
+    Provide the 'completions_stochastic_center' as the root_dir
+
+    """
     image_paths = []
     for idx in range(1000):
         image_paths.append(os.path.join(images_dir,str(idx),'gz','gz_1400.jpg'))
@@ -85,7 +91,7 @@ def create_embeddings(args):
     elif args.src == 'train':
         image_paths = create_train_image_paths(args.images_dir)
     else: # (src == inpaint)
-        images_dir = os.path.join(gan_dir_root,'{}'.format(args.gan.lower()),'celeba')
+        images_dir = os.path.join(args.images_dir,'{}'.format(args.gan.lower()),'celeba')
         image_paths = create_inpaint_image_paths(images_dir)
 
     num_images = len(image_paths)
@@ -124,7 +130,7 @@ def create_embeddings(args):
                 print('Calculating embeddings for batch {}/{} of images'.format(batch_idx,num_batches))
                 sys.stdout.flush()
                 image_batch = image_paths[batch_size*batch_idx:min(batch_size*(batch_idx+1),num_images)]
-                images = load_and_align_data(image_batch,args.image_size, args.margin, args.gpu_memory_fraction)
+                images = load_and_align_data(image_batch,args.image_size, args.margin, args.gpu_memory_fraction,use_cnn=False)
                 emb = compute_embedding(sess = sess,
                                         images_placeholder = images_placeholder,
                                         phase_train_placeholder = phase_train_placeholder,
