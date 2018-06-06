@@ -1,3 +1,4 @@
+#!/usr/bin/anaconda3/bin/python3
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -32,6 +33,7 @@ import tensorflow as tf
 import numpy as np
 import sys
 import os
+sys.path.append(os.path.join(os.getcwd(),'src'))
 import argparse
 import facenet
 import align.detect_face
@@ -41,6 +43,8 @@ from scipy.spatial.distance import cosine
 
 n_images = 1000
 image_size = 160
+
+models = ['dcgan','dcgan-gp','dragan','dcgan-cons','wgan','wgan-gp','dragan_bn','dcgan_sim']
 
 def create_image_list(image_paths):
     images = [facenet.prewhiten(misc.imresize(misc.imread(path,mode='RGB'),(image_size,image_size),interp='bilinear')) for path in image_paths]
@@ -58,10 +62,12 @@ def compare_inpaintings(root_dir,idx,sess,images_placeholder,embeddings,phase_tr
     gen_images_dir = os.path.join(image_dir,'gen')
     image_paths = []
     image_paths.append(os.path.join(image_dir,'original.jpg'))
-    generated_image_paths = [os.path.join(gen_images_dir,f) for f in os.listdir(gen_images_dir) if os.path.isfile(os.path.join(gen_images_dir, f))]
-    for path in generated_image_paths:
+
+    for model in models:
+        path = os.path.join(gen_images_dir,'{}.jpg'.format(model.lower()))
         image_paths.append(path)
 
+    # From the paths, read + whiten + resize the images to be fed to model
     images = create_image_list(image_paths)
 
     # Run forward pass to calculate embeddings
@@ -77,7 +83,6 @@ def compare_inpaintings(root_dir,idx,sess,images_placeholder,embeddings,phase_tr
     dist_list.append(original_image_path) # Add path for DB indexing
     for i in range(1,nrof_images):
         model_name = image_paths[i].split('/')[-1].split('.')[0]
-        #dist = np.sqrt(np.sum(np.square(np.subtract(emb[0,:], emb[i,:]))))
         dist = cosine(emb[0,:],emb[i,:])
         dist_list.append(dist)
         print('{} :: {}'.format(model_name.upper(),dist))
@@ -106,7 +111,11 @@ def create_database(root_dir,model=None):
                                               images_placeholder=images_placeholder,
                                               phase_train_placeholder=phase_train_placeholder))
 
-            columns = ['Original Image','DCGAN-CONS','WGAN-GP','DRAGAN','DCGAN','WGAN','DCGAN-GP']
+            columns = []
+            columns.append('Original Image')
+            for model in models:
+                columns.append(model.upper())
+
             df = pd.DataFrame(data = db,
                               columns = columns)
             df.to_csv('gan_distances.csv')
