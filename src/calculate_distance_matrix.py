@@ -143,11 +143,11 @@ def create_nn_emb_dict(args):
                         dist = cosine(norm_emb_test,norm_emb_train)
                         distances[test_image_path][train_image_path] = dist
 
-            #Save the dictionary of differences
-            if args.imagenet == False:
-                save_dict('distance_dict.pkl',distances)
-            else:
-                save_dict('distance_dict_imagenet.pkl',distances)
+                #Save the dictionary of differences -- Overwrite at every batch so we don't start from scratch if something fucks up
+                if args.imagenet == False:
+                    save_dict('distance_dict.pkl',distances)
+                else:
+                    save_dict('distance_dict_imagenet.pkl',distances)
 
 def parse_arguments(argv):
     parser = argparse.ArgumentParser()
