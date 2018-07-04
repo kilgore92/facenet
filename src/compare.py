@@ -35,6 +35,7 @@ import copy
 import argparse
 import facenet
 import align.detect_face
+import sys
 
 def main(args):
 
@@ -131,6 +132,7 @@ def load_and_align_data(image_paths, image_size, margin, gpu_memory_fraction,use
 
         prewhitened = facenet.prewhiten(aligned)
         img_list.append(prewhitened)
+
     images = np.stack(img_list)
     return images
 
