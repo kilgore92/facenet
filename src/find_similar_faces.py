@@ -13,8 +13,6 @@ import collections
 import shutil
 from compare import *
 
-models = ['dcgan.jpg','wgan.jpg','dcgan-gp.jpg','wgan-gp.jpg','dcgan-cons.jpg','dragan.jpg']
-
 def fetch_dict(fname):
     try:
         with open(fname,'rb') as f:
@@ -39,14 +37,13 @@ def merge_and_save(image_list,center_masked_list,bottom_masked_list,idx,root_dir
     2nd row : In-paintings
     """
 
-
     if len(image_list) < 10:
         print('No neighbors for image {}'.format(idx))
         return
 
     filename = os.path.join(root_dir,'sim_images_for_{}.jpg'.format(idx))
     frame_width = int(64*len(image_list))
-    frame_height = int(64*3) # 2 "rows" of images
+    frame_height = int(64) # 2 "rows" of images
     frame_channels = 3
     img = np.zeros((frame_height,frame_width,frame_channels))
 
@@ -54,23 +51,6 @@ def merge_and_save(image_list,center_masked_list,bottom_masked_list,idx,root_dir
     for image,index in zip(image_list,range(len(image_list))):
         x_pos = index*64
         img[0:int((frame_height/3)),x_pos:x_pos+64,:] = image
-
-
-    # 2nd row -- Center Mask Image + In-paintings
-    for image,index in zip(center_masked_list,range(len(center_masked_list))):
-        x_pos = index*64
-        if image.shape[0] == 64 and image.shape[1] == 64 and image.shape[2] == 3:
-            img[int((frame_height/3)):int(2*frame_height/3),x_pos:x_pos+64,:] = image
-        else:
-            print('Generated Image ({}) for original image {} is not of the correct shape'.format(models[index],idx))
-
-    # 3rd row -- Bottom Mask Image + In-paintings
-    for image,index in zip(bottom_masked_list,range(len(bottom_masked_list))):
-        x_pos = index*64
-        if image.shape[0] == 64 and image.shape[1] == 64 and image.shape[2] == 3:
-            img[int((2*frame_height/3)):frame_height,x_pos:x_pos+64,:] = image
-        else:
-            print('Generated Image ({}) for original image {} is not of the correct shape'.format(models[index],idx))
 
     scipy.misc.imsave(filename,img)
 
@@ -105,25 +85,7 @@ def find_similar_faces(distance_dict,top_n=10):
         for items in closest_images:
             image_list.append(read_and_crop_image(items[1])) # Append closest images
 
-
-        # Append center mask row
-        generated_image_root = test_image_path.replace('original.jpg','gen')
-        center_masked_image_path = test_image_path.replace('original.jpg','masked.jpg')
-        center_masked_list = []
-        center_masked_list.append(read_and_crop_image(center_masked_image_path))
-        for model in models:
-            center_masked_list.append(read_and_crop_image(os.path.join(generated_image_root,model)))
-
-        # Append bottom mask row
-        bottom_mask_original_path = test_image_path.replace('images_db','images_db_bottom')
-        bottom_mask_masked_image_path = bottom_mask_original_path.replace('original.jpg','masked.jpg')
-        bottom_masked_list = []
-        bottom_masked_list.append(read_and_crop_image(bottom_mask_masked_image_path))
-        bottom_mask_gen_dir = bottom_mask_original_path.replace('original.jpg','gen')
-        for model in models:
-            bottom_masked_list.append(read_and_crop_image(os.path.join(bottom_mask_gen_dir,model)))
-
-        merge_and_save(image_list = image_list,center_masked_list = center_masked_list,bottom_masked_list = bottom_masked_list, idx = get_image_id(test_image_path),root_dir = root_dir)
+        merge_and_save(image_list = image_list,idx = get_image_id(test_image_path),root_dir = root_dir)
 
 if __name__ == '__main__':
     distances = fetch_dict('distance_dict.pkl')
