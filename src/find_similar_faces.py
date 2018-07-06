@@ -29,7 +29,7 @@ def read_and_crop_image(fname):
     return center_crop(im = scipy.misc.imread(fname,mode='RGB'),output_size=[64,64])
 
 
-def merge_and_save(image_list,center_masked_list,bottom_masked_list,idx,root_dir):
+def merge_and_save(image_list,idx,root_dir):
 
     """
     Create an image mosiac.
@@ -42,15 +42,15 @@ def merge_and_save(image_list,center_masked_list,bottom_masked_list,idx,root_dir
         return
 
     filename = os.path.join(root_dir,'sim_images_for_{}.jpg'.format(idx))
-    frame_width = int(64*len(image_list))
-    frame_height = int(64) # 2 "rows" of images
+    frame_width = 64*len(image_list)
+    frame_height = 64 # 2 "rows" of images
     frame_channels = 3
     img = np.zeros((frame_height,frame_width,frame_channels))
 
-    # Top row -- Original Images + Nearest Neighbors from training data
+    # Original Images + Nearest Neighbors from training data
     for image,index in zip(image_list,range(len(image_list))):
         x_pos = index*64
-        img[0:int((frame_height/3)),x_pos:x_pos+64,:] = image
+        img[0:int(frame_height),x_pos:x_pos+64,:] = image
 
     scipy.misc.imsave(filename,img)
 
@@ -88,7 +88,7 @@ def find_similar_faces(distance_dict,top_n=10):
         merge_and_save(image_list = image_list,idx = get_image_id(test_image_path),root_dir = root_dir)
 
 if __name__ == '__main__':
-    distances = fetch_dict('distance_dict.pkl')
+    distances = fetch_dict('distance_dict_imagenet.pkl')
     find_similar_faces(distance_dict = distances)
 
 
