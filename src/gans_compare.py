@@ -41,10 +41,10 @@ from compare import *
 import pandas as pd
 from scipy.spatial.distance import cosine
 
-n_images = 1000
+n_images = 50
 image_size = 160
 
-models = ['dcgan','dcgan-gp','dragan','dcgan-cons','wgan','wgan-gp','dragan_bn','dcgan_sim']
+models = ['dcgan','dcgan-gp','dragan','dcgan-cons','wgan','wgan-gp','dragan_bn','dcgan_sim','syn']
 
 def create_image_list(image_paths):
     images = [facenet.prewhiten(misc.imresize(misc.imread(path,mode='RGB'),(image_size,image_size),interp='bilinear')) for path in image_paths]
