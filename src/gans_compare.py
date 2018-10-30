@@ -34,24 +34,35 @@ import numpy as np
 import sys
 import os
 sys.path.append(os.path.join(os.getcwd(),'src'))
+from plot_mnist_embeddings import load_mnist_model
 import argparse
 import facenet
 import align.detect_face
 from compare import *
 import pandas as pd
 from scipy.spatial.distance import cosine
+from tensorflow.examples.tutorials.mnist import input_data
 
-n_images = 50
+n_images = 1000
+
 image_size = 160
+mnist_image_size = 28
 
-models = ['dcgan','dcgan-gp','dragan','dcgan-cons','wgan','wgan-gp','dragan_bn','dcgan_sim','syn']
+models = ['dcgan','dcgan-gp','dragan','dcgan-cons','wgan','wgan-gp','dragan_bn','dcgan_sim']
 
-def create_image_list(image_paths):
-    images = [facenet.prewhiten(misc.imresize(misc.imread(path,mode='RGB'),(image_size,image_size),interp='bilinear')) for path in image_paths]
+def normalize_mnist_images(image,image_mean):
+    return image-image_mean
+
+def create_image_list(image_paths,dataset='celeba',image_mean=None):
+    if dataset == 'celeba':
+        images = [facenet.prewhiten(misc.imresize(misc.imread(path,mode='RGB'),(image_size,image_size),interp='bilinear')) for path in image_paths]
+    else:
+        images = [normalize_mnist_images(misc.imresize(misc.imread(path),(mnist_image_size,mnist_image_size),interp='bilinear').flatten(),image_mean=image_mean) for path in image_paths]
+
     return np.stack(images)
 
 
-def compare_inpaintings(root_dir,idx,sess,images_placeholder,embeddings,phase_train_placeholder):
+def compare_inpaintings(root_dir,idx,sess,images_placeholder,embeddings,phase_train_placeholder,dataset='celeba',image_mean=None):
     """
     Computes distances of in-paintings of a single original image (by different models) to the original image
 
@@ -64,14 +75,19 @@ def compare_inpaintings(root_dir,idx,sess,images_placeholder,embeddings,phase_tr
     image_paths.append(os.path.join(image_dir,'original.jpg'))
 
     for model in models:
+        if dataset == 'mnist' and model == 'dcgan_sim':
+            continue
         path = os.path.join(gen_images_dir,'{}.jpg'.format(model.lower()))
         image_paths.append(path)
 
     # From the paths, read + whiten + resize the images to be fed to model
-    images = create_image_list(image_paths)
+    images = create_image_list(image_paths,dataset=dataset,image_mean=image_mean)
 
     # Run forward pass to calculate embeddings
-    feed_dict = { images_placeholder: images, phase_train_placeholder:False }
+    if dataset == 'celeba':
+        feed_dict = { images_placeholder: images, phase_train_placeholder:False }
+    else:
+        feed_dict = {images_placeholder : images}
     emb = sess.run(embeddings, feed_dict=feed_dict)
 
     nrof_images = len(image_paths)
@@ -88,20 +104,29 @@ def compare_inpaintings(root_dir,idx,sess,images_placeholder,embeddings,phase_tr
         print('{} :: {}'.format(model_name.upper(),dist))
     return dist_list
 
-def create_database(root_dir,model=None):
+def create_database(root_dir,model=None,dataset='celeba'):
     db = []
 
     with tf.Graph().as_default():
         config = tf.ConfigProto()
-        config.gpu_options.visible_device_list = "0"
         with tf.Session(config = config) as sess:
             # Load the model
-            facenet.load_model(model)
+            if dataset == 'celeba':
+                facenet.load_model(model)
+                images_placeholder = tf.get_default_graph().get_tensor_by_name("input:0")
+                image_mean = None
+            else:
+                load_mnist_model(model_dir=model,sess=sess)
+                images_placeholder = tf.get_default_graph().get_tensor_by_name("images:0")
+                mnist = input_data.read_data_sets('./mnist')
+                image_mean = np.mean(mnist.train.images, axis=0)
 
             # Get input and output tensors
-            images_placeholder = tf.get_default_graph().get_tensor_by_name("input:0")
             embeddings = tf.get_default_graph().get_tensor_by_name("embeddings:0")
-            phase_train_placeholder = tf.get_default_graph().get_tensor_by_name("phase_train:0")
+            if dataset == 'celeba':
+                phase_train_placeholder = tf.get_default_graph().get_tensor_by_name("phase_train:0")
+            else:
+                phase_train_placeholder = None
 
             for idx in range(n_images):
                 db.append(compare_inpaintings(root_dir = root_dir,
@@ -109,18 +134,22 @@ def create_database(root_dir,model=None):
                                               sess = sess,
                                               embeddings=embeddings,
                                               images_placeholder=images_placeholder,
-                                              phase_train_placeholder=phase_train_placeholder))
+                                              phase_train_placeholder=phase_train_placeholder,
+                                              dataset=dataset,
+                                              image_mean=image_mean))
 
                 sys.stdout.flush()
 
             columns = []
             columns.append('Original Image')
             for model in models:
+                if dataset == 'mnist' and model == 'dcgan_sim':
+                    continue
                 columns.append(model.upper())
 
             df = pd.DataFrame(data = db,
                               columns = columns)
-            df.to_csv('gan_distances.csv')
+            df.to_csv('gan_distances_{}.csv'.format(dataset))
 
 
 def build_parser():
@@ -135,11 +164,12 @@ def build_parser():
         help='Margin for the crop around the bounding box (height, width) in pixels.', default=44)
     parser.add_argument('--gpu_memory_fraction', type=float,
         help='Upper bound on the amount of GPU memory that will be used by the process.', default=0.8)
+    parser.add_argument('--dataset',type=str,default='celeba',help='Allowed options : celeba/mnist')
     return parser
 
 if __name__ == '__main__':
 
     parser = build_parser()
     args = parser.parse_args()
-    create_database(root_dir = args.image_files,model = args.model)
+    create_database(root_dir = args.image_files,model = args.model,dataset=args.dataset)
 
