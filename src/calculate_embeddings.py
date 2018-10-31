@@ -38,9 +38,11 @@ sys.path.append(os.path.join(os.getcwd(),'src'))
 import argparse
 import facenet
 import align.detect_face
+from plot_mnist_embeddings import load_mnist_model
 from compare import *
 import math
 import pickle
+from tensorflow.examples.tutorials.mnist import input_data
 
 n_images = 1000
 
@@ -68,14 +70,19 @@ def create_inpaint_image_paths(images_dir):
         image_paths.append(os.path.join(images_dir,str(idx),'gz','gz_1400.jpg'))
     return image_paths
 
-def compute_embedding(sess,images_placeholder,phase_train_placeholder,embedding_compute_node,image_batch):
+def compute_embedding(sess,images_placeholder,phase_train_placeholder,embedding_compute_node,image_batch,dataset='celeba'):
     """
     Computes embeddings for an image batch
 
     """
     # Run forward pass to calculate embeddings
-    feed_dict = { images_placeholder: image_batch, phase_train_placeholder:False }
+    if dataset == 'celeba':
+        feed_dict = { images_placeholder: image_batch, phase_train_placeholder:False }
+    else:
+        feed_dict = { images_placeholder: image_batch}
+
     emb = sess.run(embedding_compute_node, feed_dict=feed_dict)
+
     return emb
 
 
@@ -92,7 +99,7 @@ def create_embeddings(args):
     elif args.src == 'train':
         image_paths = create_train_image_paths(args.images_dir)
     else: # (src == inpaint)
-        images_dir = os.path.join(args.images_dir,'{}'.format(args.gan.lower()),'celeba')
+        images_dir = os.path.join(args.images_dir,'{}'.format(args.gan.lower()),args.dataset.lower())
         image_paths = create_inpaint_image_paths(images_dir)
 
     num_images = len(image_paths)
@@ -110,9 +117,9 @@ def create_embeddings(args):
         os.makedirs(save_path)
 
     if args.src == 'inpaint':
-        fname = os.path.join(save_path,'{}_emb_dict.pkl'.format(args.gan.lower()))
+        fname = os.path.join(save_path,'{}_{}_emb_dict.pkl'.format(args.gan.lower(),args.dataset.lower()))
     else:
-        fname = os.path.join(save_path,'{}_emb_dict.pkl'.format(args.src.lower()))
+        fname = os.path.join(save_path,'{}_{}_emb_dict.pkl'.format(args.src.lower(),args.dataset.lower()))
 
     with tf.Graph().as_default():
 
@@ -120,23 +127,35 @@ def create_embeddings(args):
 
         with tf.Session(config = config) as sess:
             # Load the model
-            facenet.load_model(args.model)
+            if args.dataset == 'celeba':
+                facenet.load_model(args.model)
+                images_placeholder = tf.get_default_graph().get_tensor_by_name("input:0")
+                phase_train_placeholder = tf.get_default_graph().get_tensor_by_name("phase_train:0")
+            else:
+                load_mnist_model(model_dir=args.model,sess=sess)
+                images_placeholder = tf.get_default_graph().get_tensor_by_name("images:0")
+                phase_train_placeholder = None
+                mnist = input_data.read_data_sets('./mnist')
+                image_mean = np.mean(mnist.train.images, axis=0)
 
             # Get input and output tensors
-            images_placeholder = tf.get_default_graph().get_tensor_by_name("input:0")
             embeddings = tf.get_default_graph().get_tensor_by_name("embeddings:0")
-            phase_train_placeholder = tf.get_default_graph().get_tensor_by_name("phase_train:0")
 
             for batch_idx in range(num_batches):
                 print('Calculating embeddings for batch {}/{} of images'.format(batch_idx,num_batches))
                 sys.stdout.flush()
                 image_batch = image_paths[batch_size*batch_idx:min(batch_size*(batch_idx+1),num_images)]
-                images = load_and_align_data(image_batch,args.image_size, args.margin, args.gpu_memory_fraction,use_cnn=False)
+                if args.dataset == 'celeba':
+                    images = load_and_align_data(image_batch,args.image_size, args.margin, args.gpu_memory_fraction,use_cnn=False)
+                else:
+                    images = create_image_list(image_batch,dataset='mnist',image_mean=image_mean)
+
                 emb = compute_embedding(sess = sess,
                                         images_placeholder = images_placeholder,
                                         phase_train_placeholder = phase_train_placeholder,
                                         embedding_compute_node = embeddings,
-                                        image_batch = images)
+                                        image_batch = images,
+                                        dataset=args.dataset)
 
                 # Save to dict
                 for path,idx in zip(image_batch,range(len(image_batch))):
@@ -167,6 +186,7 @@ def parse_arguments(argv):
     parser.add_argument('--images_dir',type=str,help='Path containing held out set of images',default=None)
     parser.add_argument('--src',type=str,help='Type of images to generate embeddings for',default=None)
     parser.add_argument('--gan',type=str,help='GAN that performed the inpainting',default=None)
+    parser.add_argument('--dataset',type=str,help='celeba/mnist',default='celeba')
     return parser.parse_args(argv)
 
 if __name__ == '__main__':

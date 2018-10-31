@@ -37,6 +37,8 @@ import facenet
 import align.detect_face
 import sys
 
+mnist_image_size = 28
+
 def main(args):
 
     images = load_and_align_data(args.image_files, args.image_size, args.margin, args.gpu_memory_fraction)
@@ -135,6 +137,17 @@ def load_and_align_data(image_paths, image_size, margin, gpu_memory_fraction,use
 
     images = np.stack(img_list)
     return images
+
+def normalize_mnist_images(image,image_mean):
+    return image-image_mean
+
+def create_image_list(image_paths,dataset='celeba',image_mean=None):
+    if dataset == 'celeba':
+        images = [facenet.prewhiten(misc.imresize(misc.imread(path,mode='RGB'),(image_size,image_size),interp='bilinear')) for path in image_paths]
+    else:
+        images = [normalize_mnist_images(misc.imresize(misc.imread(path),(mnist_image_size,mnist_image_size),interp='bilinear').flatten(),image_mean=image_mean) for path in image_paths]
+
+    return np.stack(images)
 
 def parse_arguments(argv):
     parser = argparse.ArgumentParser()
