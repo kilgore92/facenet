@@ -65,8 +65,6 @@ def compare_inpaintings(root_dir,idx,sess,images_placeholder,embeddings,phase_tr
     image_paths.append(os.path.join(image_dir,'original.jpg'))
 
     for model in models:
-        if dataset == 'mnist' and model == 'dcgan_sim':
-            continue
         path = os.path.join(gen_images_dir,'{}.jpg'.format(model.lower()))
         image_paths.append(path)
 
@@ -133,8 +131,6 @@ def create_database(root_dir,model=None,dataset='celeba'):
             columns = []
             columns.append('Original Image')
             for model in models:
-                if dataset == 'mnist' and model == 'dcgan_sim':
-                    continue
                 columns.append(model.upper())
 
             df = pd.DataFrame(data = db,
