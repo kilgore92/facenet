@@ -42,6 +42,7 @@ from compare import *
 import pandas as pd
 from scipy.spatial.distance import cosine
 from tensorflow.examples.tutorials.mnist import input_data
+import shutil
 
 n_images = 1000
 
@@ -95,6 +96,12 @@ def compare_inpaintings(root_dir,idx,sess,images_placeholder,embeddings,phase_tr
 def create_database(root_dir,model=None,dataset='celeba'):
     db = []
 
+    outDir = os.path.join('logs',dataset)
+
+    if os.path.exists(outDir):
+        shutil.rmtree(outDir)
+    os.makedirs(outDir)
+
     with tf.Graph().as_default():
         config = tf.ConfigProto()
         with tf.Session(config = config) as sess:
@@ -135,7 +142,7 @@ def create_database(root_dir,model=None,dataset='celeba'):
 
             df = pd.DataFrame(data = db,
                               columns = columns)
-            df.to_csv('gan_distances_{}.csv'.format(dataset))
+            df.to_csv(os.path.join(outDir,'gan_distances.csv'.format(dataset)))
 
 
 def build_parser():
@@ -157,5 +164,5 @@ if __name__ == '__main__':
 
     parser = build_parser()
     args = parser.parse_args()
-    create_database(root_dir = args.image_files,model = args.model,dataset=args.dataset)
+    create_database(root_dir = os.path.join(args.image_files,args.dataset), model = args.model, dataset=args.dataset)
 
