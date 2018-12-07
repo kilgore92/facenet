@@ -111,13 +111,13 @@ def create_embeddings(args):
 
     embedding_dict = {}
 
-    save_path = os.path.join(os.getcwd(),'embeddings')
+    save_path = os.path.join(os.getcwd(),'embeddings',args.dataset.lower())
 
     if os.path.exists(save_path) is False:
         os.makedirs(save_path)
 
     if args.src == 'inpaint':
-        fname = os.path.join(save_path,'{}_{}_emb_dict.pkl'.format(args.gan.lower(),args.dataset.lower()))
+        fname = os.path.join(save_path,'{}_emb_dict.pkl'.format(args.gan.lower()))
     else:
         fname = os.path.join(save_path,'{}_{}_emb_dict.pkl'.format(args.src.lower(),args.dataset.lower()))
 
