@@ -99,7 +99,7 @@ def create_embeddings(args):
     elif args.src == 'train':
         image_paths = create_train_image_paths(args.images_dir)
     else: # (src == inpaint)
-        images_dir = os.path.join(args.images_dir,'{}'.format(args.gan.lower()),args.dataset.lower())
+        images_dir = os.path.join(args.images_dir,args.dataset.lower(),args.gan.lower(),args.mask)
         image_paths = create_inpaint_image_paths(images_dir)
 
     num_images = len(image_paths)
@@ -187,6 +187,7 @@ def parse_arguments(argv):
     parser.add_argument('--src',type=str,help='Type of images to generate embeddings for',default=None)
     parser.add_argument('--gan',type=str,help='GAN that performed the inpainting',default=None)
     parser.add_argument('--dataset',type=str,help='celeba/mnist',default='celeba')
+    parser.add_argument('--mask',type=str,help='Mask applied during inpainting',default='center')
     return parser.parse_args(argv)
 
 if __name__ == '__main__':
