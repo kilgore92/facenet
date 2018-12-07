@@ -46,7 +46,22 @@ from tensorflow.examples.tutorials.mnist import input_data
 
 n_images = 1000
 
+"""
+A note on the path creation functions:
 
+    Test Mode:
+        Test Images correspond to the original image, against which the
+        closeness of the generated image G(z) is compared (via the distance in the embedding space).
+        The test images are picked up from the imagesdb/<dataset>/<idx> folder(s)
+
+    Inpaint Mode:
+        We calculate inpaintings for G(z) and NOT the inpainting itself. This decision was taken
+        because the purpose of the 3-vector embedding is measure overlap between the support of the data and
+        model distributions. Since the inpainting is created by blending the original and generated image, it
+        is technically not part of the model distribution support.
+        These images are read from the completions/<dataset>/<idx>/gz folders.
+
+"""
 def create_test_image_paths(root_dir):
     """
     To maintain indexing, provide the images db folder
@@ -94,9 +109,9 @@ def create_embeddings(args):
 
     """
 
-    if args.src == 'test':
-        image_paths = create_test_image_paths(args.images_dir)
-    elif args.src == 'train':
+    if args.mode == 'test':
+        image_paths = create_test_image_paths(os.path.join(args.images_dir,args.dataset.lower()))
+    elif args.mode == 'train':
         image_paths = create_train_image_paths(args.images_dir)
     else: # (src == inpaint)
         images_dir = os.path.join(args.images_dir,args.dataset.lower(),args.gan.lower(),args.mask)
@@ -116,10 +131,10 @@ def create_embeddings(args):
     if os.path.exists(save_path) is False:
         os.makedirs(save_path)
 
-    if args.src == 'inpaint':
+    if args.mode == 'inpaint':
         fname = os.path.join(save_path,'{}_emb_dict.pkl'.format(args.gan.lower()))
     else:
-        fname = os.path.join(save_path,'{}_{}_emb_dict.pkl'.format(args.src.lower(),args.dataset.lower()))
+        fname = os.path.join(save_path,'{}_{}_emb_dict.pkl'.format(args.mode.lower(),args.dataset.lower()))
 
     with tf.Graph().as_default():
 
@@ -184,7 +199,7 @@ def parse_arguments(argv):
     parser.add_argument('--gpu_memory_fraction', type=float,
         help='Upper bound on the amount of GPU memory that will be used by the process.', default=0.8)
     parser.add_argument('--images_dir',type=str,help='Path containing held out set of images',default=None)
-    parser.add_argument('--src',type=str,help='Type of images to generate embeddings for',default=None)
+    parser.add_argument('--mode',type=str,help='Type of images to generate embeddings for',default=None)
     parser.add_argument('--gan',type=str,help='GAN that performed the inpainting',default=None)
     parser.add_argument('--dataset',type=str,help='celeba/mnist',default='celeba')
     parser.add_argument('--mask',type=str,help='Mask applied during inpainting',default='center')
