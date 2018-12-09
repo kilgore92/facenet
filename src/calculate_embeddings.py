@@ -174,12 +174,36 @@ def create_embeddings(args):
 
                 # Save to dict
                 for path,idx in zip(image_batch,range(len(image_batch))):
-                    embedding_dict[path] = emb[idx,:]
+                    if args.mode == 'inpaint' or args.mode == 'test':
+                        dict_key = generate_dict_key_from_path(path,mode=args.mode)
+                    else:
+                        dict_key = path
+
+                    embedding_dict[dict_key] = emb[idx,:]
 
                 # Save dict to disk for every batch
                 with open(fname,'wb') as f:
                     pickle.dump(embedding_dict,f)
 
+def generate_dict_key_from_path(path,mode=None):
+    """
+    Generate the dictionary key given file-path
+    This is needed because on some clusters because
+    constructing keys using os.getcwd() returns different keys
+    depending on cluster (/mnt/server-home/... or /home/...)
+
+    Keys are constructed such that os.path.join(os.getcwd(),key)
+    gives the file path through which the image can be read in the underfit.py that consumes the .pkl
+    files generated here.
+
+    """
+    path_list = path.split('/')
+    if mode == 'test':
+        dict_key = os.path.join(*path_list[-4:])
+    elif mode == 'inpaint':
+        dict_key = os.path.join(*path_list[-7:])
+
+    return dict_key
 
 def save_dict(fname,diff_dict):
     with open(fname,'wb') as f:
