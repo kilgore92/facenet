@@ -38,6 +38,7 @@ import align.detect_face
 import sys
 
 mnist_image_size = 28
+celeba_image_size = 160
 
 def main(args):
 
@@ -143,7 +144,7 @@ def normalize_mnist_images(image,image_mean):
 
 def create_image_list(image_paths,dataset='celeba',image_mean=None):
     if dataset == 'celeba':
-        images = [facenet.prewhiten(misc.imresize(misc.imread(path,mode='RGB'),(image_size,image_size),interp='bilinear')) for path in image_paths]
+        images = [facenet.prewhiten(misc.imresize(misc.imread(path,mode='RGB'),(celeba_image_size,celeba_image_size),interp='bilinear')) for path in image_paths]
     else:
         images = [normalize_mnist_images(misc.imresize(misc.imread(path),(mnist_image_size,mnist_image_size),interp='bilinear').flatten(),image_mean=image_mean) for path in image_paths]
 

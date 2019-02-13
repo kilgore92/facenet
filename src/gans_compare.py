@@ -43,7 +43,7 @@ import pandas as pd
 from scipy.spatial.distance import cosine
 from tensorflow.examples.tutorials.mnist import input_data
 import shutil
-
+import math
 n_images = 1000
 
 image_size = 160
@@ -51,6 +51,19 @@ mnist_image_size = 28
 
 models = ['dcgan','dcgan-gp','dragan','dcgan-cons','wgan','wgan-gp','dragan_bn','dcgan_sim']
 
+
+def central_angle_metric(u,v,r=1.0):
+    """
+    For 2 vectors u,v lying on a (hyper-)sphere of radius r,
+    this function returns the smallest central angle (in degrees) between them
+
+    """
+    dot_product = np.dot(u,v)
+    central_angle = np.arccos(np.divide(dot_product,r*r))
+    if central_angle <= math.pi:
+        return math.degrees(central_angle)
+    else:
+        return math.degrees(2*np.pi - central_angle)
 
 
 def compare_inpaintings(root_dir,idx,sess,images_placeholder,embeddings,phase_train_placeholder,dataset='celeba',image_mean=None):
@@ -88,7 +101,7 @@ def compare_inpaintings(root_dir,idx,sess,images_placeholder,embeddings,phase_tr
     dist_list.append(original_image_path) # Add path for DB indexing
     for i in range(1,nrof_images):
         model_name = image_paths[i].split('/')[-1].split('.')[0]
-        dist = cosine(emb[0,:],emb[i,:])
+        dist = central_angle_metric(emb[0,:],emb[i,:])
         dist_list.append(dist)
         print('{} :: {}'.format(model_name.upper(),dist))
     return dist_list
